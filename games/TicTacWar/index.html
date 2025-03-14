@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TicTacWar</title>
+    <style>
+        /* Importing a war-themed font */
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
+
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Bangers', sans-serif;
+            background-image: url('https://i.postimg.cc/rpjpvThD/green-grass-minecraft-pattern-PMNW.jpg');
+            background-size: 100% 100%; /* Reduced background size */
+        }
+
+        /* Game Title Styles */
+        #gameTitle {
+            font-size: 4rem; /* Large font for the game title */
+            color: yellow;
+            text-shadow: 3px 3px 5px black; /* Black outline */
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 20px; /* Space between title and board */
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(3, 130px);  /* Increased size of cells */
+            grid-template-rows: repeat(3, 130px);     /* Increased size of cells */
+            gap: 15px;                               /* More space between cells */
+            border: 10px solid #333;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            background-image: url('https://i.postimg.cc/pdJ9RzdX/5113941d-24ca-401e-9cbe-802d42e462a1-scaled.jpg');
+            background-size: cover;
+            padding: 10px;
+        }
+
+        .cell {
+            width: 120px;                         /* Increased cell size */
+            height: 120px;                        /* Increased cell size */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: transparent;
+            border: 2px solid #654321;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cell.taken {
+            cursor: not-allowed;
+            background-color: rgba(165, 42, 42, 0.7);
+        }
+
+        .cell:hover:not(.taken) {
+            background-color: rgba(165, 42, 42, 0.7);
+        }
+
+        .piece {
+            width: 60%;
+            height: auto;
+            position: absolute;
+            top: 200%;
+            transition: top 0.5s ease;
+        }
+
+        .piece.visible {
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .piece.jumping {
+            animation: jump 0.5s infinite;
+        }
+
+        @keyframes jump {
+            0%, 100% {
+                transform: translateY(-50%) scale(1);
+            }
+            50% {
+                transform: translateY(-70%) scale(1.1);
+            }
+        }
+
+        #status {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 3rem;  /* Increased size */
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #winnerPopup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            padding: 30px;
+            border-radius: 20px;
+            color: gold;
+            font-size: 4rem; /* Larger font */
+            font-weight: bold;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            display: none;
+            animation: popper 1s ease-in-out;
+        }
+
+        /* Poppers and crackers animation */
+        @keyframes popper {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Added firework explosion for extra effect */
+        .firework {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, red, yellow, orange);
+            animation: firework 2s forwards;
+            opacity: 0;
+            z-index: 100;
+        }
+
+        @keyframes firework {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.7;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        /* Restart Button Styles */
+        #restartButton {
+            display: none;
+            padding: 10px 20px;
+            font-size: 1.5rem;
+            color: #fff;
+            background-color: #2d3748;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        #restartButton:hover {
+            background-color: #4a5568;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <!-- Game Title -->
+        <div id="gameTitle">TicTacWar</div>
+
+        <!-- Game Board -->
+        <div id="board"></div>
+
+        <!-- Status Message -->
+        <div id="status">Soldier's turn</div>
+
+        <!-- Winner Popup -->
+        <div id="winnerPopup"></div>
+
+        <!-- Restart Button -->
+        <button id="restartButton">Restart Game</button>
+    </div>
+
+    <script>
+        const board = document.getElementById('board');
+        const status = document.getElementById('status');
+        const winnerPopup = document.getElementById('winnerPopup');
+        const restartButton = document.getElementById('restartButton');
+
+        const images = {
+            Soldier: 'https://i.postimg.cc/qBh3CtbQ/C4Ikb.png',
+            Monster: 'https://i.postimg.cc/y8X6ZBCL/body.png',
+        };
+
+        let currentPlayer = 'Soldier';
+        let gameBoard = Array(9).fill(null);
+
+        function checkWinner() {
+            const winningCombinations = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8],
+                [0, 3, 6], [1, 4, 7], [2, 5, 8],
+                [0, 4, 8], [2, 4, 6]
+            ];
+
+            for (const combination of winningCombinations) {
+                const [a, b, c] = combination;
+                if (gameBoard[a] && gameBoard[a] === gameBoard[b] && gameBoard[a] === gameBoard[c]) {
+                    return gameBoard[a];
+                }
+            }
+            return gameBoard.includes(null) ? null : 'Tie';
+        }
+
+        function triggerJump(winner) {
+            document.querySelectorAll('.cell').forEach((cell, index) => {
+                if (gameBoard[index] === winner) {
+                    const img = cell.querySelector('img');
+                    if (img) {
+                        img.classList.add('jumping');
+                    }
+                }
+            });
+        }
+
+        function triggerFireworks() {
+            for (let i = 0; i < 3; i++) {
+                const firework = document.createElement('div');
+                firework.classList.add('firework');
+                firework.style.top = `${Math.random() * 80 + 10}%`;
+                firework.style.left = `${Math.random() * 80 + 10}%`;
+                document.body.appendChild(firework);
+                setTimeout(() => firework.remove(), 2000);
+            }
+        }
+
+        function handleClick(event) {
+            const cell = event.target;
+            const index = cell.dataset.index;
+
+            if (gameBoard[index] || checkWinner()) {
+                return;
+            }
+
+            gameBoard[index] = currentPlayer;
+
+            const img = document.createElement('img');
+            img.src = images[currentPlayer];
+            img.classList.add('piece');
+            cell.appendChild(img);
+            setTimeout(() => {
+                img.classList.add('visible');
+            }, 50);
+
+            cell.classList.add('taken');
+
+            const winner = checkWinner();
+            if (winner) {
+                status.textContent = winner === 'Tie' ? "It's a tie!" : `${winner} wins!`;
+                winnerPopup.textContent = winner === 'Tie' ? "It's a tie!" : `${winner} wins!`;
+                winnerPopup.style.display = 'block';  // Show winner popup
+                triggerFireworks();  // Trigger fireworks animation
+                if (winner !== 'Tie') {
+                    triggerJump(winner);
+                }
+                restartButton.style.display = 'inline-block'; // Show the restart button
+                return;
+            }
+
+            currentPlayer = currentPlayer === 'Soldier' ? 'Monster' : 'Soldier';
+            status.textContent = `${currentPlayer}'s turn`;
+        }
+
+        function createBoard() {
+            board.innerHTML = '';
+            gameBoard = Array(9).fill(null);
+            currentPlayer = 'Soldier';
+            status.textContent = "Soldier's turn";
+
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.dataset.index = i;
+                cell.addEventListener('click', handleClick);
+                board.appendChild(cell);
+            }
+        }
+
+        restartButton.addEventListener('click', () => {
+            winnerPopup.style.display = 'none'; // Hide the winner popup
+            restartButton.style.display = 'none'; // Hide the restart button
+            createBoard(); // Restart the game
+        });
+
+        createBoard();
+    </script>
+</body>
+</html>
